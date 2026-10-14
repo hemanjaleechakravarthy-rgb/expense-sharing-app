@@ -2,6 +2,7 @@ package kluniversity.com.expense.entity;
 
 import java.time.LocalDate;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -17,6 +18,10 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // NEW: Store the Razorpay payment ID uniquely
+    @Column(unique = true)
+    private String razorpayPaymentId;
+
     @ManyToOne
     private User fromUser;
 
@@ -31,6 +36,11 @@ public class Payment {
 
     public Long getId() {
         return id;
+    }
+
+    // NEW: Getter for Razorpay payment ID
+    public String getRazorpayPaymentId() {
+        return razorpayPaymentId;
     }
 
     public User getFromUser() {
@@ -55,6 +65,11 @@ public class Payment {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    // NEW: Setter for Razorpay payment ID
+    public void setRazorpayPaymentId(String razorpayPaymentId) {
+        this.razorpayPaymentId = razorpayPaymentId;
     }
 
     public void setFromUser(User fromUser) {
