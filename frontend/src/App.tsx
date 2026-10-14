@@ -1,6 +1,9 @@
 import { useState } from "react";
 import "./App.css";
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL?.trim() || "http://localhost:8082";
+
 type Balance = {
   fromUser: string;
   toUser: string;
@@ -82,21 +85,6 @@ type GroupSummary = {
   myContributions: number;
   myShare: number;
   myPendingPayments: number;
-};
-
-type Transaction = {
-  id: number;
-  dateTime: string;
-  amount: number;
-  description: string;
-  group: string;
-  payer: string;
-  participants: {
-    name: string;
-    share: number;
-    paid: boolean;
-  }[];
-  paymentStatus: "PAID" | "PENDING" | "NOT_SPLIT";
 };
 
 type RazorpaySuccessResponse = {
@@ -221,12 +209,7 @@ function App() {
   const [equalSplitPayerId, setEqualSplitPayerId] = useState("");
   const [equalSplitReview, setEqualSplitReview] = useState(false);
   const [equalSplitSubmitting, setEqualSplitSubmitting] = useState(false);
-  const [equalSplitSubmissionKey, setEqualSplitSubmissionKey] =
-    useState(() => crypto.randomUUID());
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [transactionsLoading, setTransactionsLoading] = useState(false);
-  const [transactionsError, setTransactionsError] = useState("");
 
   // =========================
   // LOAD GROUPS
@@ -237,7 +220,7 @@ function App() {
 
     try {
       const response = await fetch(
-        "http://localhost:8080/api/groups",
+        `${API_BASE_URL}/api/groups`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -277,7 +260,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/groups/${targetGroupId}/balances`,
+        `${API_BASE_URL}/api/groups/${targetGroupId}/balances`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -313,7 +296,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/groups/${targetGroupId}/reminders`,
+        `${API_BASE_URL}/api/groups/${targetGroupId}/reminders`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -349,7 +332,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/groups/${targetGroupId}/summary`,
+        `${API_BASE_URL}/api/groups/${targetGroupId}/summary`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -385,7 +368,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/groups/${targetGroupId}/members`,
+        `${API_BASE_URL}/api/groups/${targetGroupId}/members`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -433,7 +416,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/groups/${targetGroupId}/expenses`,
+        `${API_BASE_URL}/api/groups/${targetGroupId}/expenses`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -455,64 +438,38 @@ function App() {
     }
   };
 
-  const loadTransactionHistory = async (groupId: number) => {
+  const loadPaymentHistory = async (groupId: number) => {
     const token = localStorage.getItem("token");
-    setTransactionsLoading(true);
-    setTransactionsError("");
-    setTransactions([]);
+
+    setPaymentHistoryLoading(true);
+    setPaymentHistoryError("");
+
     try {
       const response = await fetch(
-        `http://localhost:8080/api/groups/${groupId}/transactions`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${API_BASE_URL}/api/payments/history/${groupId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+        }
       );
+
       if (!response.ok) {
-        throw new Error(`Transaction history request failed (${response.status})`);
+        throw new Error(`Payment history failed (${response.status})`);
       }
-      const data: Transaction[] = await response.json();
-      setTransactions(data);
+
+      const data: PaymentHistoryItem[] = await response.json();
+      setPaymentHistory(data);
     } catch (error) {
-      console.error("Transaction history error:", error);
-      setTransactionsError(
-        error instanceof Error ? error.message : "Unable to load transaction history"
+      setPaymentHistoryError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load payment history"
       );
     } finally {
-      setTransactionsLoading(false);
+      setPaymentHistoryLoading(false);
     }
   };
-
-const loadPaymentHistory = async (groupId: number) => {
-  const token = localStorage.getItem("token");
-
-  setPaymentHistoryLoading(true);
-  setPaymentHistoryError("");
-
-  try {
-    const response = await fetch(
-      `http://localhost:8080/api/payments/history/${groupId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Payment history failed (${response.status})`);
-    }
-
-    const data: PaymentHistoryItem[] = await response.json();
-    setPaymentHistory(data);
-  } catch (error) {
-    setPaymentHistoryError(
-      error instanceof Error
-        ? error.message
-        : "Unable to load payment history"
-    );
-  } finally {
-    setPaymentHistoryLoading(false);
-  }
-};
-
 
   const loadEqualSplitMembers = async (groupId: number) => {
     const token = localStorage.getItem("token");
@@ -522,7 +479,7 @@ const loadPaymentHistory = async (groupId: number) => {
     setEqualSplitPayerId("");
     try {
       const response = await fetch(
-        `http://localhost:8080/api/groups/${groupId}/members`,
+        `${API_BASE_URL}/api/groups/${groupId}/members`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!response.ok) {
@@ -563,7 +520,7 @@ const loadPaymentHistory = async (groupId: number) => {
 
     try {
       const response = await fetch(
-        "http://localhost:8080/api/personal/expenses",
+        `${API_BASE_URL}/api/personal/expenses`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!response.ok) {
@@ -603,29 +560,49 @@ const loadPaymentHistory = async (groupId: number) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !password) {
+      alert("Please enter both email and password");
+      return;
+    }
+
     try {
       const response = await fetch(
-        "http://localhost:8080/api/users/login",
+        `${API_BASE_URL}/api/users/login`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            email,
+            email: trimmedEmail,
             password,
           }),
         }
       );
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: { message?: string; error?: string; token?: string } | null = null;
+
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText) as {
+            message?: string;
+            error?: string;
+            token?: string;
+          };
+        } catch {
+          data = null;
+        }
+      }
 
       if (!response.ok) {
-        alert(data.message || "Login failed");
+        alert(data?.message || data?.error || responseText || "Login failed");
         return;
       }
 
-      if (data.token) {
+      if (data?.token) {
         localStorage.setItem("token", data.token);
       }
 
@@ -692,7 +669,7 @@ const loadPaymentHistory = async (groupId: number) => {
 
     try {
       const response = await fetch(
-        "http://localhost:8080/api/users/register",
+        `${API_BASE_URL}/api/users/register`,
         {
           method: "POST",
           headers: {
@@ -766,7 +743,7 @@ const loadPaymentHistory = async (groupId: number) => {
 
       setShowSignup(false);
       setEmail(signupEmail.trim());
-      setPassword("");
+      setPassword(signupPassword);
 
       setSignupName("");
       setSignupEmail("");
@@ -777,7 +754,7 @@ const loadPaymentHistory = async (groupId: number) => {
 
       alert(
         "Cannot connect to backend.\n\n" +
-          "Make sure Spring Boot is running on port 8080."
+          "Make sure Spring Boot is running on port 8081."
       );
     }
   };
@@ -798,7 +775,7 @@ const loadPaymentHistory = async (groupId: number) => {
 
     try {
       const response = await fetch(
-        "http://localhost:8080/api/groups",
+        `${API_BASE_URL}/api/groups`,
         {
           method: "POST",
           headers: {
@@ -871,7 +848,7 @@ const loadPaymentHistory = async (groupId: number) => {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/groups/${groupId}`,
+        `${API_BASE_URL}/api/groups/${groupId}`,
         {
           method: "PUT",
           headers: {
@@ -990,7 +967,7 @@ const loadPaymentHistory = async (groupId: number) => {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/groups/${selectedGroup}/members`,
+        `${API_BASE_URL}/api/groups/${selectedGroup}/members`,
         {
           method: "POST",
           headers: {
@@ -1061,7 +1038,7 @@ const loadPaymentHistory = async (groupId: number) => {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/expenses/${expenseId}/splits`,
+        `${API_BASE_URL}/api/expenses/${expenseId}/splits`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1137,7 +1114,7 @@ const loadPaymentHistory = async (groupId: number) => {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/groups/${activeGroupId}/expenses`,
+        `${API_BASE_URL}/api/groups/${activeGroupId}/expenses`,
         {
           method: "POST",
           headers: {
@@ -1195,7 +1172,7 @@ const loadPaymentHistory = async (groupId: number) => {
     }
 
     try {
-      const response = await fetch("http://localhost:8080/api/personal/expenses", {
+      const response = await fetch(`${API_BASE_URL}/api/personal/expenses`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1265,7 +1242,7 @@ const loadPaymentHistory = async (groupId: number) => {
         amount: (baseShare + (index < remainder ? 1 : 0)) / 100,
       }));
       const response = await fetch(
-        `http://localhost:8080/api/expenses/${expense.id}/splits`,
+        `${API_BASE_URL}/api/expenses/${expense.id}/splits`,
         {
           method: "POST",
           headers: {
@@ -1287,7 +1264,6 @@ const loadPaymentHistory = async (groupId: number) => {
       setEqualSplitDescription("");
       setEqualSplitAmount("");
       setEqualSplitExpenseId("");
-      setEqualSplitSubmissionKey(crypto.randomUUID());
       await loadGroupDashboardData(equalSplitGroupId);
     } catch (error) {
       console.error("Create equal split expense error:", error);
@@ -1346,7 +1322,7 @@ const loadPaymentHistory = async (groupId: number) => {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/expenses/${selectedExpense.id}/splits`,
+        `${API_BASE_URL}/api/expenses/${selectedExpense.id}/splits`,
         {
           method: "POST",
           headers: {
@@ -1389,7 +1365,7 @@ const recoverPayment = async (splitId: number) => {
   const token = localStorage.getItem("token");
   try {
     const response = await fetch(
-      `http://localhost:8080/api/payments/${splitId}/status`,
+      `${API_BASE_URL}/api/payments/${splitId}/status`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     const data = await response.json();
@@ -1427,7 +1403,7 @@ const payNow = async (splitId: number) => {
   try {
     // 1. Create Razorpay order from backend
     const response = await fetch(
-      "http://localhost:8080/api/payments/create-order",
+      `${API_BASE_URL}/api/payments/create-order`,
       {
         method: "POST",
         headers: {
@@ -1459,7 +1435,7 @@ const payNow = async (splitId: number) => {
       handler: async function (paymentResponse: any) {
   try {
     const verifyResponse = await fetch(
-      "http://localhost:8080/api/payments/verify",
+      `${API_BASE_URL}/api/payments/verify`,
       {
         method: "POST",
         headers: {
@@ -3120,7 +3096,6 @@ const payNow = async (splitId: number) => {
                 setEqualSplitAmount("");
                 setEqualSplitExpenseId("");
                 setEqualSplitReview(false);
-                setEqualSplitSubmissionKey(crypto.randomUUID());
                 const groupId = activeGroupId ?? "";
                 setEqualSplitGroupId(groupId);
                 setEqualSplitMembers([]);

@@ -30,3 +30,11 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Backend API
+
+The frontend uses `http://localhost:8081` by default, matching the Spring Boot
+backend's configured port. To use a different backend URL, set
+`VITE_API_BASE_URL` before running or building the frontend. In PowerShell, for
+example, run `$env:VITE_API_BASE_URL = "https://api.example.com"` first. The
+backend must allow the frontend's origin through its CORS configuration.

@@ -20,14 +20,14 @@ public class JwtService {
 
     public JwtService(@Value("${jwt.secret:}") String secretKey) {
         this.secretKey = secretKey;
-    }
-
-    private SecretKey getSigningKey() {
         if (secretKey == null
                 || secretKey.getBytes(StandardCharsets.UTF_8).length < 32) {
             throw new IllegalStateException(
-                    "JWT_SECRET must contain at least 32 bytes");
+                    "Set JWT_SECRET to at least 32 bytes before starting the backend");
         }
+    }
+
+    private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(
                 secretKey.getBytes(StandardCharsets.UTF_8)
         );
