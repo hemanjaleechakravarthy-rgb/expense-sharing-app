@@ -1,7 +1,6 @@
 package kluniversity.com.expense.service;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,22 +48,6 @@ public class PaymentService {
             @Value("${razorpay.webhook.secret:}") String webhookSecret) {
         this.expenseSplitRepository = expenseSplitRepository;
         this.userRepository = userRepository;
-        this.paymentRepository = paymentRepository;
-        this.razorpayGateway = razorpayGateway;
-        this.keySecret = keySecret;
-        this.webhookSecret = webhookSecret;
-    }
-
-    // Keeps the existing constructor usable by your current unit tests.
-    public PaymentService(
-            ExpenseSplitRepository expenseSplitRepository,
-            UserRepository userRepository,
-            RazorpayGateway razorpayGateway,
-            String keySecret,
-            String webhookSecret) {
-        this.expenseSplitRepository = expenseSplitRepository;
-        this.userRepository = userRepository;
-        this.paymentRepository = null;
         this.razorpayGateway = razorpayGateway;
         this.keySecret = keySecret;
         this.webhookSecret = webhookSecret;
@@ -324,39 +307,10 @@ public class PaymentService {
                     "This expense split has already been paid");
         }
 
-        // Preserve the existing expense-split payment tracking.
         split.setPaid(true);
         split.setRazorpayPaymentId(paymentId);
         split.setPaidAt(java.time.LocalDateTime.now());
         expenseSplitRepository.save(split);
-
-        // NEW: persist the verified payment in public.payments.
-        if (paymentRepository != null) {
-            Expense expense = split.getExpense();
-            User fromUser = split.getUser();
-
-            if (expense == null || fromUser == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT,
-                        "Expense or paying participant is missing");
-            }
-
-            User toUser = expense.getPaidBy();
-
-            if (toUser == null) {
-                toUser = expense.getOwner();
-            }
-
-            Payment savedPayment = new Payment();
-            savedPayment.setFromUser(fromUser);
-            savedPayment.setToUser(toUser);
-            savedPayment.setAmount(split.getAmount());
-            savedPayment.setStatus("SUCCESS");
-            savedPayment.setDate(LocalDate.now());
-
-            paymentRepository.save(savedPayment);
-        }
-
         return Map.of(
                 "success", true,
                 "paid", true,
