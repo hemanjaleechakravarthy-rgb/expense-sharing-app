@@ -48,6 +48,7 @@ public class PaymentService {
             @Value("${razorpay.webhook.secret:}") String webhookSecret) {
         this.expenseSplitRepository = expenseSplitRepository;
         this.userRepository = userRepository;
+        this.paymentRepository = paymentRepository;
         this.razorpayGateway = razorpayGateway;
         this.keySecret = keySecret;
         this.webhookSecret = webhookSecret;
