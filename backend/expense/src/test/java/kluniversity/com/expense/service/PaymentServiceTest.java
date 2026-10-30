@@ -22,21 +22,23 @@ import kluniversity.com.expense.entity.ExpenseSplit;
 import kluniversity.com.expense.entity.User;
 import kluniversity.com.expense.repository.ExpenseSplitRepository;
 import kluniversity.com.expense.repository.UserRepository;
+import kluniversity.com.expense.repository.PaymentRepository;
 import com.razorpay.Utils;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentServiceTest {
 
-    @Mock private ExpenseSplitRepository expenseSplitRepository;
-    @Mock private UserRepository userRepository;
-    @Mock private RazorpayGateway razorpayGateway;
+   @Mock private ExpenseSplitRepository expenseSplitRepository;
+@Mock private UserRepository userRepository;
+@Mock private PaymentRepository paymentRepository;
+@Mock private RazorpayGateway razorpayGateway;
 
     private PaymentService paymentService;
 
     @BeforeEach
     void setUp() {
         paymentService = new PaymentService(
-                expenseSplitRepository, userRepository, razorpayGateway,
+                expenseSplitRepository, userRepository, paymentRepository, razorpayGateway,
                 "", "");
     }
 
@@ -79,11 +81,12 @@ class PaymentServiceTest {
         CreatePaymentRequest request = new CreatePaymentRequest();
         request.setSplitId(42L);
         PaymentService noCredentialsService = new PaymentService(
-                expenseSplitRepository,
-                userRepository,
-                new RazorpayGateway("", ""),
-                "",
-                "");
+        expenseSplitRepository,
+        userRepository,
+        paymentRepository,
+        new RazorpayGateway("", ""),
+        "",
+        "");
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
                 () -> noCredentialsService.createOrder(
@@ -215,11 +218,12 @@ class PaymentServiceTest {
 
     private PaymentService configuredService() {
         return new PaymentService(
-                expenseSplitRepository,
-                userRepository,
-                razorpayGateway,
-                "test-key-secret",
-                "test-webhook-secret");
+        expenseSplitRepository,
+        userRepository,
+        paymentRepository,
+        razorpayGateway,
+        "test-key-secret",
+        "test-webhook-secret");
     }
 
     private JSONObject orderJson() throws org.json.JSONException {

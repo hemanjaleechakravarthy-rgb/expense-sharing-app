@@ -38,18 +38,20 @@ class ExpenseServiceTest {
     @Mock private GroupRepository groupRepository;
     @Mock private GroupMemberRepository groupMemberRepository;
     @Mock private UserRepository userRepository;
+    @Mock private EmailService emailService;
 
     private ExpenseService expenseService;
 
     @BeforeEach
-    void setUp() {
-        expenseService = new ExpenseService(
-                expenseRepository,
-                expenseSplitRepository,
-                groupRepository,
-                groupMemberRepository,
-                userRepository);
-    }
+void setUp() {
+    expenseService = new ExpenseService(
+            expenseRepository,
+            expenseSplitRepository,
+            groupRepository,
+            groupMemberRepository,
+            userRepository,
+            emailService);
+}
 
     @Test
     void equalSplitAllocatesRemainderInPaiseAndUsesEveryMember() {

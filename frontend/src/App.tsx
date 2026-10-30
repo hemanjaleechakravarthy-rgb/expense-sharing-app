@@ -208,7 +208,12 @@ function App() {
   const [equalSplitExpenseId, setEqualSplitExpenseId] = useState<number | "">("");
   const [equalSplitPayerId, setEqualSplitPayerId] = useState("");
   const [equalSplitReview, setEqualSplitReview] = useState(false);
+  // Per-member allocations are stored as integer paise to avoid floating-point rounding.
+  const [equalSplitSharesPaise, setEqualSplitSharesPaise] = useState<Record<number, number>>({});
   const [equalSplitSubmitting, setEqualSplitSubmitting] = useState(false);
+  const [equalSplitSubmissionKey, setEqualSplitSubmissionKey] = useState(() =>
+  crypto.randomUUID()
+);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
 
   // =========================
@@ -285,18 +290,17 @@ function App() {
   // LOAD REMINDERS
   // =========================
 
-  const loadReminders = async (groupId?: number) => {
+  const loadReminders = async (_groupId?: number) => {
     const token = localStorage.getItem("token");
-    const targetGroupId = groupId ?? activeGroupId;
 
-    if (!targetGroupId) {
+    if (!token) {
       setReminders([]);
       return;
     }
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/groups/${targetGroupId}/reminders`,
+     const response = await fetch(
+        `${API_BASE_URL}/api/groups/${_groupId}/reminders`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -305,12 +309,17 @@ function App() {
       );
 
       if (!response.ok) {
+        console.error(
+          "Failed to load reminders:",
+          response.status
+        );
         setReminders([]);
         return;
       }
 
-      const data = await response.json();
-      setReminders(data);
+      const data: Reminder[] = await response.json();
+
+      setReminders(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Reminders error:", error);
       setReminders([]);
@@ -1219,6 +1228,15 @@ function App() {
       alert("Select a group with members and a payer");
       return;
     }
+    // Start the review with an equal allocation; the user can then edit any member.
+    const totalPaise = Math.round(amount * 100);
+    const basePaise = Math.floor(totalPaise / equalSplitMembers.length);
+    const remainderPaise = totalPaise % equalSplitMembers.length;
+    const initialShares: Record<number, number> = {};
+    equalSplitMembers.forEach((member, index) => {
+      initialShares[member.user.id] = basePaise + (index < remainderPaise ? 1 : 0);
+    });
+    setEqualSplitSharesPaise(initialShares);
     setEqualSplitReview(true);
   };
 
@@ -1234,13 +1252,18 @@ function App() {
         throw new Error("Please select an existing expense");
       }
       const totalPaise = Math.round(expense.amount * 100);
-      const memberCount = equalSplitMembers.length;
-      const baseShare = Math.floor(totalPaise / memberCount);
-      const remainder = totalPaise % memberCount;
-      const requests = equalSplitMembers.map((member, index) => ({
+      const requests = equalSplitMembers.map((member) => ({
         userId: member.user.id,
-        amount: (baseShare + (index < remainder ? 1 : 0)) / 100,
+        amount: (equalSplitSharesPaise[member.user.id] ?? 0) / 100,
       }));
+      const allocatedPaise = requests.reduce(
+        (sum, request) => sum + Math.round(request.amount * 100),
+        0
+      );
+      if (requests.some((request) => !Number.isFinite(request.amount) || request.amount < 0)
+          || allocatedPaise !== totalPaise) {
+        throw new Error(`The participant amounts must be non-negative and add up to ₹${(totalPaise / 100).toFixed(2)}.`);
+      }
       const response = await fetch(
         `${API_BASE_URL}/api/expenses/${expense.id}/splits`,
         {
@@ -1261,9 +1284,11 @@ function App() {
       setShowEqualSplitWizard(false);
       setShowExpenses(true);
       setEqualSplitReview(false);
-      setEqualSplitDescription("");
+            setEqualSplitDescription("");
       setEqualSplitAmount("");
       setEqualSplitExpenseId("");
+      setEqualSplitSharesPaise({});
+      setEqualSplitSubmissionKey(crypto.randomUUID());
       await loadGroupDashboardData(equalSplitGroupId);
     } catch (error) {
       console.error("Create equal split expense error:", error);
@@ -2150,14 +2175,15 @@ const payNow = async (splitId: number) => {
       member.user.email.toLowerCase() === email.toLowerCase()
   )?.user.id;
 
-  const myBalances = balances.filter(
-    (balance) =>
-      balance.fromUser.toLowerCase() ===
-        members.find((member) => member.user.id === currentUserId)?.user.name.toLowerCase()
-      && !balance.paid
-  );
+  // Show pending balances using account-wide reminders
+const myBalances: Balance[] = reminders.map((reminder) => ({
+  fromUser: reminder.fromUser,
+  toUser: reminder.toUser,
+  amount: reminder.amount,
+  paid: false,
+}));
 
-  const myPendingBalanceCount = myBalances.length;
+const myPendingBalanceCount = myBalances.length;
 
 
   return (
@@ -3354,28 +3380,50 @@ const payNow = async (splitId: number) => {
                   </div>
                 </div>
                 <p className="form-hint">
-                  {equalSplitRemainderPaise === 0
-                    ? "There is no rounding remainder; all shares are equal to the paise."
-                    : `${equalSplitRemainderPaise} leftover paise are assigned one each to the first ${equalSplitRemainderPaise} members shown below.`}
+                  Adjust each participant’s amount below. The total of all amounts must equal the expense total.
                 </p>
                 <div className="split-preview">
-                  {equalSplitMembers.map((member, index) => {
-                    const basePaise = Math.floor(
-                      equalSplitTotalPaise / equalSplitMembers.length
-                    );
-                    const sharePaise = basePaise
-                      + (index < equalSplitRemainderPaise ? 1 : 0);
+                  {equalSplitMembers.map((member) => {
+                    const sharePaise = equalSplitSharesPaise[member.user.id] ?? 0;
                     return (
-                      <div className="split-member" key={member.id}>
+                      <div className="split-member" key={member.user.id}>
                         <div className="mini-avatar">
                           {member.user.name.charAt(0).toUpperCase()}
                         </div>
                         <strong>{member.user.name}</strong>
-                        <span>₹{(sharePaise / 100).toFixed(2)}</span>
+                        <label className="split-amount-editor">
+                          <span className="sr-only">Amount for {member.user.name}</span>
+                          ₹
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            inputMode="decimal"
+                            value={(sharePaise / 100).toFixed(2)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              if (value === "") {
+                                setEqualSplitSharesPaise((current) => ({ ...current, [member.user.id]: 0 }));
+                                return;
+                              }
+                              const parsed = Number(value);
+                              if (Number.isFinite(parsed) && parsed >= 0
+                                  && Math.abs(parsed * 100 - Math.round(parsed * 100)) < 0.000001) {
+                                setEqualSplitSharesPaise((current) => ({ ...current, [member.user.id]: Math.round(parsed * 100) }));
+                              }
+                            }}
+                          />
+                        </label>
                       </div>
                     );
                   })}
                 </div>
+                <p className="form-hint">
+                  Allocated: ₹{(equalSplitMembers.reduce((sum, member) => sum + (equalSplitSharesPaise[member.user.id] ?? 0), 0) / 100).toFixed(2)}
+                  {equalSplitMembers.reduce((sum, member) => sum + (equalSplitSharesPaise[member.user.id] ?? 0), 0) === equalSplitTotalPaise
+                    ? " — total matches."
+                    : ` — difference ₹${((equalSplitTotalPaise - equalSplitMembers.reduce((sum, member) => sum + (equalSplitSharesPaise[member.user.id] ?? 0), 0)) / 100).toFixed(2)}.`}
+                </p>
                 <div className="form-actions">
                   <button
                     type="button"

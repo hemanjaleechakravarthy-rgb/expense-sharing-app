@@ -1,3 +1,4 @@
+
 package kluniversity.com.expense.service;
 
 import java.util.ArrayList;
@@ -35,12 +36,11 @@ public class ReminderService {
         this.userRepository = userRepository;
     }
 
+    // Existing: reminders for a specific group
     public List<ReminderResponse> getPendingReminders(
             Long groupId, String email) {
 
-        User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "User not found"));
+        User currentUser = getCurrentUser(email);
 
         if (!groupRepository.existsById(groupId)) {
             throw new ResponseStatusException(
@@ -54,11 +54,38 @@ public class ReminderService {
                     "You are not a member of this group");
         }
 
-        List<ReminderResponse> reminders = new ArrayList<>();
-
         List<ExpenseSplit> splits =
                 expenseSplitRepository.findByUserIdAndExpenseGroupId(
                         currentUser.getId(), groupId);
+
+        return buildReminders(splits);
+    }
+
+    // NEW: Reminders across all groups for the logged-in user
+    public List<ReminderResponse> getMyPendingReminders(String email) {
+
+        User currentUser = getCurrentUser(email);
+
+        List<ExpenseSplit> splits =
+                expenseSplitRepository.findByUserIdAndPaidFalse(
+                        currentUser.getId());
+
+        return buildReminders(splits);
+    }
+
+    // Find the logged-in user
+    private User getCurrentUser(String email) {
+
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "User not found"));
+    }
+
+    // Convert unpaid splits into reminder responses
+    private List<ReminderResponse> buildReminders(
+            List<ExpenseSplit> splits) {
+
+        List<ReminderResponse> reminders = new ArrayList<>();
 
         for (ExpenseSplit split : splits) {
 
@@ -73,6 +100,7 @@ public class ReminderService {
                 continue;
             }
 
+            // Don't show a reminder to the person who paid the expense
             if (split.getUser().getId().equals(
                     split.getExpense().getPaidBy().getId())) {
                 continue;
@@ -80,8 +108,10 @@ public class ReminderService {
 
             String fromUser = split.getUser().getName();
             String toUser = split.getExpense().getPaidBy().getName();
+
             String fromEmail = split.getUser().getEmail();
             String toEmail = split.getExpense().getPaidBy().getEmail();
+
             Double amount = split.getAmount();
 
             String message = fromUser + " owes " + toUser

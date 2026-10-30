@@ -1,10 +1,14 @@
+
 package kluniversity.com.expense.dto;
+
+import java.util.List;
 
 public class CreateExpenseRequest {
 
     private String description;
     private Double amount;
     private Long paidByUserId;
+    private List<ExpenseShareRequest> splits;
 
     public CreateExpenseRequest() {
     }
@@ -31,5 +35,13 @@ public class CreateExpenseRequest {
 
     public void setPaidByUserId(Long paidByUserId) {
         this.paidByUserId = paidByUserId;
+    }
+
+    public List<ExpenseShareRequest> getSplits() {
+        return splits;
+    }
+
+    public void setSplits(List<ExpenseShareRequest> splits) {
+        this.splits = splits;
     }
 }
