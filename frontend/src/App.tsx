@@ -3512,18 +3512,21 @@ const myPendingBalanceCount = myBalances.length;
                   Select who paid
                 </option>
 
-                {members.map(
-                  (member) => (
+                {members
+                .filter(
+                  (member) =>
+                    member.user.email.toLowerCase() !==
+                    email.trim().toLowerCase()
+                )
+                .map((member) => (
+                <option
+                key={member.user.id}
+                value={member.user.id}
+                >
+                  {member.user.name}
+                </option>
+              ))}
 
-                    <option
-                      key={member.user.id}
-                      value={member.user.id}
-                    >
-                      {member.user.name}
-                    </option>
-
-                  )
-                )}
 
               </select>
 
