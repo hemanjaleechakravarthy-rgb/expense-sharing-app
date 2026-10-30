@@ -1093,71 +1093,80 @@ function App() {
   // CREATE EXPENSE
   // =========================
 
-  const createExpense = async (e: React.FormEvent) => {
-    e.preventDefault();
+  
+const createExpense = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    const token = localStorage.getItem("token");
+  const token = localStorage.getItem("token");
 
-    if (!activeGroupId) {
-      alert("Please select a group first");
-      return;
-    }
+  if (!activeGroupId) {
+    alert("Please select a group first");
+    return;
+  }
 
-    if (!expenseDescription.trim()) {
-      alert("Please enter an expense description");
-      return;
-    }
+  if (!expenseDescription.trim()) {
+    alert("Please enter an expense description");
+    return;
+  }
 
-    if (!expenseAmount || Number(expenseAmount) <= 0) {
-      alert("Please enter a valid amount");
-      return;
-    }
+  if (!expenseAmount || Number(expenseAmount) <= 0) {
+    alert("Please enter a valid amount");
+    return;
+  }
 
-    if (!paidByUserId) {
-      alert("Please select who paid");
-      return;
-    }
+  // Automatically use the logged-in user as the payer.
+  const currentUser = members.find(
+    (member) =>
+      member.user.email.toLowerCase() ===
+      email.trim().toLowerCase()
+  );
 
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/groups/${activeGroupId}/expenses`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            description: expenseDescription,
-            amount: Number(expenseAmount),
-            paidByUserId: Number(paidByUserId),
-          }),
-        }
-      );
+  if (!currentUser) {
+    alert("Your account is not a member of this group");
+    return;
+  }
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error(data);
-        alert("Failed to create expense");
-        return;
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/groups/${activeGroupId}/expenses`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          description: expenseDescription.trim(),
+          amount: Number(expenseAmount),
+          paidByUserId: currentUser.user.id,
+        }),
       }
+    );
 
-      alert("Expense created successfully!");
+    const data = await response.json();
 
-      setExpenseDescription("");
-      setExpenseAmount("");
-      setShowAddExpense(false);
-
-      await loadExpenses(activeGroupId);
-      await loadBalances(activeGroupId);
-      await loadSummary(activeGroupId);
-      await loadReminders(activeGroupId);
-    } catch (error) {
-      console.error(error);
-      alert("Cannot connect to backend");
+    if (!response.ok) {
+      console.error(data);
+      alert("Failed to create expense");
+      return;
     }
-  };
+
+    alert("Expense created successfully!");
+
+    setExpenseDescription("");
+    setExpenseAmount("");
+    setShowAddExpense(false);
+
+    await loadExpenses(activeGroupId);
+    await loadBalances(activeGroupId);
+    await loadSummary(activeGroupId);
+    await loadReminders(activeGroupId);
+  } catch (error) {
+    console.error(error);
+    alert("Cannot connect to backend");
+  }
+};
+
 
   // =========================
   // CREATE PERSONAL EXPENSE
@@ -3493,36 +3502,6 @@ const myPendingBalanceCount = myBalances.length;
                 step="0.01"
                 required
               />
-
-              <label>
-                Paid By
-              </label>
-
-              <select
-                value={paidByUserId}
-                onChange={(e) =>
-                  setPaidByUserId(
-                    e.target.value
-                  )
-                }
-                required
-              >
-
-                <option value="">
-                  Select who paid
-                </option>
-
-                {members.map((member) => (
-                  <option
-                  key={member.user.id}
-                  value={member.user.id}
-                  >
-                    {member.user.name}
-                  </option>
-                  ))}
-
-
-              </select>
 
               <div className="form-actions">
 
