@@ -59,63 +59,73 @@ public class GroupSummaryService {
                     "You are not a member of this group");
         }
 
-        List<Expense> allExpenses =
-                expenseRepository.findByGroupId(groupId);
+        
+List<Expense> allExpenses =
+        expenseRepository.findByGroupId(groupId);
 
-        double totalExpenses = 0.0;
-        double myContributions = 0.0;
-        double myShare = 0.0;
-        double myPendingPayments = 0.0;
-        int visibleExpenseCount = 0;
+double totalExpenses = 0.0;
+double myContributions = 0.0;
+double myShare = 0.0;
+double myPendingPayments = 0.0;
 
-        for (Expense expense : allExpenses) {
+int successfulPaymentCount = 0;
 
-            List<ExpenseSplit> splits =
-                    expenseSplitRepository.findByExpenseId(expense.getId());
+for (Expense expense : allExpenses) {
 
-            boolean isOwner = expense.getOwner() != null
-                    && expense.getOwner().getId().equals(user.getId());
+    List<ExpenseSplit> splits =
+            expenseSplitRepository.findByExpenseId(expense.getId());
 
-            boolean isParticipant = splits.stream().anyMatch(split ->
-                    split.getUser() != null
-                    && split.getUser().getId().equals(user.getId()));
+    boolean isOwner = expense.getOwner() != null
+            && expense.getOwner().getId().equals(user.getId());
 
-            if (!isOwner && !isParticipant) {
-                continue;
-            }
+    boolean isParticipant = splits.stream().anyMatch(split ->
+            split.getUser() != null
+            && split.getUser().getId().equals(user.getId()));
 
-            totalExpenses += expense.getAmount();
-            visibleExpenseCount++;
+    if (!isOwner && !isParticipant) {
+        continue;
+    }
 
-            if (expense.getPaidBy() != null
-                    && expense.getPaidBy().getId().equals(user.getId())) {
-                myContributions += expense.getAmount();
-            }
+    totalExpenses += expense.getAmount();
 
-            if (isParticipant) {
-                for (ExpenseSplit split : splits) {
-                    if (split.getUser() != null
-                            && split.getUser().getId().equals(user.getId())) {
-                        myShare += split.getAmount();
+    // Count paid splits from this expense
+    for (ExpenseSplit split : splits) {
+        if (Boolean.TRUE.equals(split.getPaid())) {
+            successfulPaymentCount++;
+        }
+    }
 
-                        if (!Boolean.TRUE.equals(split.getPaid())) {
-                            myPendingPayments += split.getAmount();
-                        }
-                    }
+    if (expense.getPaidBy() != null
+            && expense.getPaidBy().getId().equals(user.getId())) {
+        myContributions += expense.getAmount();
+    }
+
+    if (isParticipant) {
+        for (ExpenseSplit split : splits) {
+            if (split.getUser() != null
+                    && split.getUser().getId().equals(user.getId())) {
+
+                myShare += split.getAmount();
+
+                if (!Boolean.TRUE.equals(split.getPaid())) {
+                    myPendingPayments += split.getAmount();
                 }
             }
         }
+    }
+}
 
-        GroupSummaryResponse response = new GroupSummaryResponse(
-                group.getId(),
-                group.getName(),
-                totalExpenses,
-                visibleExpenseCount);
+GroupSummaryResponse response = new GroupSummaryResponse(
+        group.getId(),
+        group.getName(),
+        totalExpenses,
+        successfulPaymentCount);
 
-        response.setMyContributions(myContributions);
-        response.setMyShare(myShare);
-        response.setMyPendingPayments(myPendingPayments);
+response.setMyContributions(myContributions);
+response.setMyShare(myShare);
+response.setMyPendingPayments(myPendingPayments);
 
-        return response;
+return response;
+
     }
 }
