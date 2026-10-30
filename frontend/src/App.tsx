@@ -211,9 +211,6 @@ function App() {
   // Per-member allocations are stored as integer paise to avoid floating-point rounding.
   const [equalSplitSharesPaise, setEqualSplitSharesPaise] = useState<Record<number, number>>({});
   const [equalSplitSubmitting, setEqualSplitSubmitting] = useState(false);
-  const [equalSplitSubmissionKey, setEqualSplitSubmissionKey] = useState(() =>
-  crypto.randomUUID()
-);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
 
   // =========================
@@ -1287,8 +1284,8 @@ function App() {
             setEqualSplitDescription("");
       setEqualSplitAmount("");
       setEqualSplitExpenseId("");
+      
       setEqualSplitSharesPaise({});
-      setEqualSplitSubmissionKey(crypto.randomUUID());
       await loadGroupDashboardData(equalSplitGroupId);
     } catch (error) {
       console.error("Create equal split expense error:", error);
@@ -1593,11 +1590,6 @@ const payNow = async (splitId: number) => {
   const equalSplitTotalPaise = Math.round(
     Number(equalSplitAmount) * 100
   );
-
-  const equalSplitRemainderPaise =
-    equalSplitMembers.length > 0
-      ? equalSplitTotalPaise % equalSplitMembers.length
-      : 0;
 
   // =========================
   // LOGOUT
@@ -2169,11 +2161,6 @@ const payNow = async (splitId: number) => {
 
   const activeGroupName =
     activeGroup?.name || "No Group Selected";
-
-  const currentUserId = members.find(
-    (member) =>
-      member.user.email.toLowerCase() === email.toLowerCase()
-  )?.user.id;
 
   // Show pending balances using account-wide reminders
 const myBalances: Balance[] = reminders.map((reminder) => ({
